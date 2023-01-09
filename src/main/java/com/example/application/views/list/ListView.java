@@ -30,6 +30,7 @@ public class ListView  extends VerticalLayout {
 
         add(getToolbar(), getContent());
         updateList();
+        closeEditor();
     }
 
     private Component getContent(){
@@ -41,18 +42,6 @@ public class ListView  extends VerticalLayout {
         content.setSizeFull();
         return content;
     }
-    private HorizontalLayout getToolbar(){
-        filterText.setPlaceholder("Filter by name...");
-        filterText.setClearButtonVisible(true);
-        filterText.setValueChangeMode(ValueChangeMode.LAZY);
-        filterText.addValueChangeListener(e -> updateList());
-
-        Button addContactButton = new Button("Add contact");
-
-        HorizontalLayout toolbar = new HorizontalLayout(filterText, addContactButton);
-        toolbar.addClassName("toolbar");
-        return toolbar;
-    }
     private void configureGrid(){
         grid.addClassNames("contact-grid");
         grid.setSizeFull();
@@ -60,10 +49,59 @@ public class ListView  extends VerticalLayout {
         grid.addColumn(contact -> contact.getStatus().getName()).setHeader("Status");
         grid.addColumn(contact -> contact.getCompany().getName()).setHeader("Company");
         grid.getColumns().forEach(col -> col.setAutoWidth(true));
+
+        grid.asSingleSelect().addValueChangeListener(event -> editContact(event.getValue()));
+    }
+    private HorizontalLayout getToolbar(){
+        filterText.setPlaceholder("Filter by name...");
+        filterText.setClearButtonVisible(true);
+        filterText.setValueChangeMode(ValueChangeMode.LAZY);
+        filterText.addValueChangeListener(e -> updateList());
+
+        Button addContactButton = new Button("Add contact");
+        addContactButton.addClickListener(click -> addContact());
+
+        HorizontalLayout toolbar = new HorizontalLayout(filterText, addContactButton);
+        toolbar.addClassName("toolbar");
+        return toolbar;
+    }
+    public void editContact(Contact contact) {
+        if (contact == null) {
+            closeEditor();
+        } else {
+            form.setContact(contact);
+            form.setVisible(true);
+            addClassName("editing");
+        }
+    }
+    private void closeEditor() {
+        form.setContact(null);
+        form.setVisible(false);
+        removeClassName("editing");
+    }
+
+    private void addContact() {
+        grid.asSingleSelect().clear();
+        editContact(new Contact());
     }
     private void configureForm(){
         form = new ContactForm(service.findAllCompanies(), service.findAllStatuses());
         form.setWidth("25em");
+        form.addListener(ContactForm.SaveEvent.class, this::saveContact);
+        form.addListener(ContactForm.DeleteEvent.class, this::deleteContact);
+        form.addListener(ContactForm.CloseEvent.class, e -> closeEditor());
+    }
+
+    private void saveContact(ContactForm.SaveEvent event) {
+        service.saveContact(event.getContact());
+        updateList();
+        closeEditor();
+    }
+
+    private void deleteContact(ContactForm.DeleteEvent event) {
+        service.deleteContact(event.getContact());
+        updateList();
+        closeEditor();
     }
 
     private void updateList(){
